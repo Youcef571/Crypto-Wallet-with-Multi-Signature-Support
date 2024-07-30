@@ -1,0 +1,45 @@
+pragma solidity ^0.8.0;
+
+contract MultiSigWallet {
+    address[] public owners;
+    uint public required;
+
+    struct Transaction {
+        address destination;
+        uint value;
+        bool executed;
+        uint8 confirmations;
+    }
+
+    mapping(uint => Transaction) public transactions;
+    mapping(uint => mapping(address => bool)) public confirmations;
+    uint public transactionCount;
+
+    constructor(address[] memory _owners, uint _required) {
+        owners = _owners;
+        required = _required;
+    }
+
+    function submitTransaction(address _destination, uint _value) public {
+        uint transactionId = transactionCount++;
+        transactions[transactionId] = Transaction({
+            destination: _destination,
+            value: _value,
+            executed: false,
+            confirmations: 0
+        });
+    }
+
+    function confirmTransaction(uint _transactionId) public {
+        require(transactions[_transactionId].executed == false, "Transaction already executed.");
+        confirmations[_transactionId][msg.sender] = true;
+        transactions[_transactionId].confirmations++;
+    }
+
+    function executeTransaction(uint _transactionId) public {
+        require(transactions[_transactionId].confirmations >= required, "Not enough confirmations.");
+        transactions[_transactionId].executed = true;
+        (bool success, ) = transactions[_transactionId].destination.call{value: transactions[_transactionId].value}("");
+        require(success, "Transaction failed.");
+    }
+}
